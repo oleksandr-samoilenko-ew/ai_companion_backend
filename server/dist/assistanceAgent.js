@@ -38,7 +38,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.runAgent = runAgent;
 const openai_1 = require("@langchain/openai");
-const messages_1 = require("@langchain/core/messages");
 const prebuilt_1 = require("@langchain/langgraph/prebuilt");
 const langgraph_1 = require("@langchain/langgraph");
 const document_1 = require("langchain/document");
@@ -48,30 +47,32 @@ const openai_2 = require("@langchain/openai");
 const path = __importStar(require("path"));
 const tools_1 = require("@langchain/core/tools");
 const zod_1 = require("zod");
+const summarizeAgent_1 = require("./summarizeAgent");
 const pdf_1 = require("@langchain/community/document_loaders/fs/pdf");
 const docx_1 = require("@langchain/community/document_loaders/fs/docx");
 const csv_1 = require("@langchain/community/document_loaders/fs/csv");
 const text_splitter_1 = require("langchain/text_splitter");
 const dotenv_1 = __importDefault(require("dotenv"));
+const fileHandlerService_1 = require("./services/fileHandlerService");
 // import pdf from 'pdf-parse';
 dotenv_1.default.config();
 // Initialize Pinecone
 const pinecone = new pinecone_2.Pinecone({
-    apiKey: process.env.PINECONE_API_KEY,
+    apiKey: process.env.PINECONE_API_KEY
 });
 // Custom tools for file parsing and Pinecone storage
 const parseFileTool = new tools_1.DynamicStructuredTool({
     name: 'parse_file',
     description: 'Parse PDF, DOCX, or CSV file',
     schema: zod_1.z.object({
-        filePath: zod_1.z.string(),
+        filePath: zod_1.z.string()
     }),
     func: async ({ filePath }) => {
         const fileExtension = path.extname(filePath).toLowerCase();
         const loader = _getLoaderForFileType(fileExtension, filePath);
         const documents = await loader.load();
         return documents;
-    },
+    }
 });
 function _getLoaderForFileType(fileExtension, filePath) {
     switch (fileExtension) {
@@ -90,15 +91,15 @@ const saveToPineconeTool = new tools_1.DynamicStructuredTool({
     description: 'Save parsed content to Pinecone vector store',
     schema: zod_1.z.object({
         content: zod_1.z.string(),
-        metadata: zod_1.z.record(zod_1.z.any()),
+        metadata: zod_1.z.record(zod_1.z.any())
     }),
     func: async ({ content, metadata }) => {
-        const index = pinecone.Index('udemy-offer');
+        const index = pinecone.Index('study-companion-db');
         const vectorStore = await pinecone_1.PineconeStore.fromExistingIndex(new openai_2.OpenAIEmbeddings(), { pineconeIndex: index });
         const doc = new document_1.Document({ pageContent: content, metadata });
         await vectorStore.addDocuments([doc]);
         return 'Content saved to Pinecone successfully';
-    },
+    }
 });
 // Define the tools for the agent to use
 const tools = [parseFileTool, saveToPineconeTool];
@@ -106,7 +107,7 @@ const toolNode = new prebuilt_1.ToolNode(tools);
 // Create a model and give it access to the tools
 const model = new openai_1.ChatOpenAI({
     modelName: 'gpt-4',
-    temperature: 0,
+    temperature: 0
 }).bindTools(tools);
 // Define the function that determines whether to continue or not
 function shouldContinue({ messages }) {
@@ -132,106 +133,91 @@ const workflow = new langgraph_1.StateGraph(langgraph_1.MessagesAnnotation)
 const app = workflow.compile();
 const textSplitter = new text_splitter_1.RecursiveCharacterTextSplitter({
     chunkSize: 1000,
-    chunkOverlap: 200,
+    chunkOverlap: 200
 });
-// Add a cache to track recently processed documents
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-let recentDocuments = new Map();
-// Add a new function to query the vector store with optional document filter
-async function queryVectorStore(query, recentOnly = false) {
-    const index = pinecone.Index('study-companion-db');
-    const vectorStore = await pinecone_1.PineconeStore.fromExistingIndex(new openai_2.OpenAIEmbeddings(), { pineconeIndex: index });
-    let filter = undefined;
-    if (recentOnly) {
-        // Get document IDs from the last 5 minutes
-        const recentDocIds = Array.from(recentDocuments.values())
-            .filter((doc) => Date.now() - doc.timestamp < CACHE_DURATION)
-            .map((doc) => doc.documentId);
-        if (recentDocIds.length > 0) {
-            filter = {
-                documentId: { $in: recentDocIds },
-            };
-        }
-    }
-    const results = await vectorStore.similaritySearch(query, 5, filter);
-    return results;
-}
 async function runAgent(filePath, query) {
     try {
-        // If filePath is provided, process and store the document
         if (filePath) {
-            // Parse the file directly
-            const documents = await parseFileTool.func({ filePath });
-            console.log('Parsed documents:', documents);
-            // Extract the pageContent from the first document
-            const fullContent = documents[0].pageContent;
+            // Process and store the document content
+            const index = pinecone.Index('study-companion-db');
+            // Generate a unique ID for this document that doesn't include timestamp
+            const documentId = `doc_${Math.random().toString(36).substring(7)}`;
+            console.log('Generated document ID:', documentId);
+            // Get the file content using FileHandlerService
+            const fileContent = await fileHandlerService_1.FileHandlerService.extractContent(filePath);
+            console.log('Extracted content length:', fileContent.length);
             // Split the content into chunks
-            const chunks = await textSplitter.splitText(fullContent);
-            console.log(`Split into ${chunks.length} chunks`);
-            // Generate a unique ID for this document
-            const documentId = `doc_${Date.now()}`;
-            // Add to recent documents cache
-            recentDocuments.set(filePath, {
-                timestamp: Date.now(),
-                documentId: documentId,
+            const chunks = await textSplitter.splitText(fileContent);
+            console.log('Number of chunks created:', chunks.length);
+            // Prepare vectors for Pinecone
+            const documents = chunks.map((chunk, index) => {
+                const metadata = {
+                    documentId: documentId,
+                    filePath: filePath,
+                    chunkIndex: index,
+                    contentLength: chunk.length,
+                    pageContent: chunk
+                };
+                console.log(`Chunk ${index} metadata:`, metadata);
+                return new document_1.Document({
+                    pageContent: chunk,
+                    metadata: metadata
+                });
             });
-            // Clean up old entries from cache
-            for (const [path, data] of recentDocuments.entries()) {
-                if (Date.now() - data.timestamp > CACHE_DURATION) {
-                    recentDocuments.delete(path);
+            // Add documents to vector store
+            console.log('Storing documents in Pinecone...');
+            const embeddings = new openai_2.OpenAIEmbeddings();
+            const vectorStore = await pinecone_1.PineconeStore.fromExistingIndex(embeddings, { pineconeIndex: index });
+            // Log the first document's embedding for debugging
+            const firstEmbedding = await embeddings.embedQuery(documents[0].pageContent);
+            console.log('Sample embedding dimension:', firstEmbedding.length);
+            // Delete existing vectors for this file path if they exist
+            try {
+                const existingVectors = await index.query({
+                    vector: firstEmbedding,
+                    topK: 10000,
+                    filter: {
+                        filePath: filePath
+                    }
+                });
+                if (existingVectors.matches.length > 0) {
+                    const ids = existingVectors.matches.map((match) => match.id);
+                    await index.deleteMany(ids);
+                    console.log(`Deleted ${ids.length} existing vectors for this file`);
                 }
             }
-            // Prepare vectors for Pinecone
-            const embeddings = new openai_2.OpenAIEmbeddings();
-            const vectors = await Promise.all(chunks.map(async (chunk, index) => {
-                const vector = await embeddings.embedQuery(chunk);
-                return {
-                    id: `${documentId}_chunk_${index}`,
-                    values: vector,
-                    metadata: {
-                        text: chunk,
-                        documentId: documentId,
-                        filePath: filePath,
-                        chunkIndex: index,
-                        timestamp: Date.now(),
-                    },
-                };
-            }));
-            // Save to Pinecone
-            const index = pinecone.Index('study-companion-db');
-            await index.upsert(vectors);
-            console.log(`Saved ${vectors.length} vectors to Pinecone`);
+            catch (error) {
+                console.log('No existing vectors found or error deleting:', error);
+            }
+            await vectorStore.addDocuments(documents);
+            console.log('Successfully stored documents in Pinecone');
+            // Call getTopCourses after storing documents with isDocumentId=true
+            // const coursesResult = await getTopCourses('test');
+            // console.log('Top courses result:', coursesResult);
             return {
                 status: 'success',
                 message: 'Document processed and stored successfully',
+                documentId: documentId,
+                chunkCount: chunks.length
+                // courses: coursesResult
             };
         }
-        // If query is provided, search through stored documents and respond
         if (query) {
-            // First try to find relevant content in recently uploaded documents
-            let relevantDocs = await queryVectorStore(query, true);
-            // If no results found in recent documents, search all documents
-            if (relevantDocs.length === 0) {
-                relevantDocs = await queryVectorStore(query, false);
-            }
-            const context = relevantDocs.map((doc) => doc.pageContent).join('\n\n');
-            const chatInstruction = `Based on the following context, please answer the user's question: "${query}"\n\nContext:\n${context}`;
-            const chatState = await app.invoke({
-                messages: [new messages_1.HumanMessage(chatInstruction)],
-            });
-            const response = chatState.messages[chatState.messages.length - 1].content;
-            return { status: 'success', message: response };
+            const index = pinecone.Index('study-companion-db');
+            const result = await (0, summarizeAgent_1.getTopCourses)('give a brief summary of the content ');
+            console.log('pinecone result', result);
+            return {
+                status: 'success',
+                message: result
+            };
         }
         return {
             status: 'error',
-            message: 'Either filePath or query must be provided',
+            message: 'No file or query provided'
         };
     }
     catch (error) {
         console.error('Error in runAgent:', error);
-        if (error instanceof Error) {
-            return { status: 'error', message: error.message };
-        }
-        return { status: 'error', message: 'An unknown error occurred' };
+        throw error;
     }
 }
