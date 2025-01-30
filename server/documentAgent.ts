@@ -16,13 +16,13 @@ dotenv.config();
 
 // Initialize Pinecone
 const pinecone = new Pinecone({
-    apiKey: process.env.PINECONE_API_KEY!,
+    apiKey: process.env.PINECONE_API_KEY!
 });
 
 // Text splitter configuration
 const textSplitter = new RecursiveCharacterTextSplitter({
     chunkSize: 1000,
-    chunkOverlap: 200,
+    chunkOverlap: 200
 });
 
 // Custom tools for the agent
@@ -30,24 +30,24 @@ const extractContentTool = new DynamicStructuredTool({
     name: 'extract_content',
     description: 'Extract content from a file using FileHandlerService',
     schema: z.object({
-        filePath: z.string(),
+        filePath: z.string()
     }),
     func: async ({ filePath }) => {
         const content = await FileHandlerService.extractContent(filePath);
         return content;
-    },
+    }
 });
 
 const splitTextTool = new DynamicStructuredTool({
     name: 'split_text',
     description: 'Split text content into chunks',
     schema: z.object({
-        content: z.string(),
+        content: z.string()
     }),
     func: async ({ content }) => {
         const chunks = await textSplitter.splitText(content);
         return chunks;
-    },
+    }
 });
 
 const saveToPineconeTool = new DynamicStructuredTool({
@@ -55,13 +55,13 @@ const saveToPineconeTool = new DynamicStructuredTool({
     description: 'Save content chunks to Pinecone vector store',
     schema: z.object({
         chunks: z.array(z.string()),
-        metadata: z.record(z.any()),
+        metadata: z.record(z.any())
     }),
     func: async ({ chunks, metadata }) => {
         const index = pinecone.Index('study-companion-db');
         const embeddings = new OpenAIEmbeddings();
         const vectorStore = await PineconeStore.fromExistingIndex(embeddings, {
-            pineconeIndex: index,
+            pineconeIndex: index
         });
 
         const documents = chunks.map((chunk, index) => {
@@ -69,47 +69,42 @@ const saveToPineconeTool = new DynamicStructuredTool({
                 pageContent: chunk,
                 metadata: {
                     ...metadata,
-                    chunkIndex: index,
-                },
+                    chunkIndex: index
+                }
             });
         });
 
         await vectorStore.addDocuments(documents);
         return 'Content saved to Pinecone successfully';
-    },
+    }
 });
 
 const queryPineconeTool = new DynamicStructuredTool({
     name: 'query_pinecone',
     description: 'Query Pinecone vector store for relevant content',
     schema: z.object({
-        query: z.string(),
+        query: z.string()
     }),
     func: async ({ query }) => {
         const index = pinecone.Index('study-companion-db');
         const embeddings = new OpenAIEmbeddings();
         const vectorStore = await PineconeStore.fromExistingIndex(embeddings, {
-            pineconeIndex: index,
+            pineconeIndex: index
         });
 
         const results = await vectorStore.similaritySearch(query, 3);
         return JSON.stringify(results);
-    },
+    }
 });
 
 // Define the tools for the agent to use
-const tools = [
-    extractContentTool,
-    splitTextTool,
-    saveToPineconeTool,
-    queryPineconeTool,
-];
+const tools = [extractContentTool, splitTextTool, saveToPineconeTool, queryPineconeTool];
 const toolNode = new ToolNode(tools);
 
 // Create a model and give it access to the tools
 const model = new ChatOpenAI({
     modelName: 'gpt-4',
-    temperature: 0,
+    temperature: 0
 }).bindTools(tools);
 
 // Define the function that determines whether to continue or not
@@ -139,25 +134,13 @@ const workflow = new StateGraph(MessagesAnnotation)
 const app = workflow.compile();
 
 // Add this helper function at the top level
-async function retryWithExponentialBackoff<T>(
-    operation: () => Promise<T>,
-    maxRetries: number = 5,
-    initialDelay: number = 2000
-): Promise<T> {
+async function retryWithExponentialBackoff<T>(operation: () => Promise<T>, maxRetries: number = 5, initialDelay: number = 2000): Promise<T> {
     for (let i = 0; i < maxRetries; i++) {
         try {
             const result = await operation();
-            if (
-                Array.isArray(result) &&
-                result.length === 0 &&
-                i < maxRetries - 1
-            ) {
+            if (Array.isArray(result) && result.length === 0 && i < maxRetries - 1) {
                 const delay = initialDelay * Math.pow(2, i);
-                console.log(
-                    `No results found, retrying in ${
-                        delay / 1000
-                    } seconds... (Attempt ${i + 1}/${maxRetries})`
-                );
+                console.log(`No results found, retrying in ${delay / 1000} seconds... (Attempt ${i + 1}/${maxRetries})`);
                 await new Promise((resolve) => setTimeout(resolve, delay));
                 continue;
             }
@@ -165,22 +148,16 @@ async function retryWithExponentialBackoff<T>(
         } catch (error) {
             if (i === maxRetries - 1) throw error;
             const delay = initialDelay * Math.pow(2, i);
-            console.log(
-                `Error occurred, retrying in ${
-                    delay / 1000
-                } seconds... (Attempt ${i + 1}/${maxRetries})`
-            );
+            console.log(`Error occurred, retrying in ${delay / 1000} seconds... (Attempt ${i + 1}/${maxRetries})`);
             await new Promise((resolve) => setTimeout(resolve, delay));
         }
     }
     throw new Error('Max retries reached');
 }
 
-export async function processDocument(
-    filePath: string
-): Promise<{ status: string; message: string; documentId: string }> {
+export async function processDocument(filePath: string, existingDocumentId?: string): Promise<{ status: string; message: string; documentId: string }> {
     try {
-        const documentId = `doc_${Math.random().toString(36).substring(7)}`;
+        const documentId = existingDocumentId || `doc_${Math.random().toString(36).substring(7)}`;
 
         // First, extract content
         console.log('Extracting content from file:', filePath);
@@ -197,7 +174,7 @@ export async function processDocument(
             documentId,
             filePath,
             timestamp: new Date().toISOString(),
-            source: 'document_processor',
+            source: 'document_processor'
         };
 
         // Save to Pinecone
@@ -205,7 +182,7 @@ export async function processDocument(
         const index = pinecone.Index('study-companion-db');
         const embeddings = new OpenAIEmbeddings();
         const vectorStore = await PineconeStore.fromExistingIndex(embeddings, {
-            pineconeIndex: index,
+            pineconeIndex: index
         });
 
         const documents = chunks.map((chunk, index) => {
@@ -213,8 +190,8 @@ export async function processDocument(
                 pageContent: chunk,
                 metadata: {
                     ...metadata,
-                    chunkIndex: index,
-                },
+                    chunkIndex: index
+                }
             });
         });
 
@@ -224,7 +201,7 @@ export async function processDocument(
         return {
             status: 'success',
             message: `Document processed and stored successfully. Created ${chunks.length} chunks.`,
-            documentId,
+            documentId
         };
     } catch (error) {
         console.error('Error processing document:', error);
@@ -232,10 +209,7 @@ export async function processDocument(
     }
 }
 
-export async function queryDocument(
-    query: string,
-    documentId: string
-): Promise<{ status: string; message: string }> {
+export async function queryDocument(query: string, documentId: string): Promise<{ status: string; message: string }> {
     try {
         console.log('Querying Pinecone with:', query);
         console.log('Filtering by documentId:', documentId);
@@ -244,39 +218,34 @@ export async function queryDocument(
         const embeddings = new OpenAIEmbeddings();
         const vectorStore = await PineconeStore.fromExistingIndex(embeddings, {
             pineconeIndex: index,
-            filter: { documentId: documentId },
+            filter: { documentId: documentId }
         });
 
         // Search for relevant documents with retry mechanism
         console.log('Performing similarity search with retries...');
         const results = await retryWithExponentialBackoff(async () => {
             const searchResults = await vectorStore.similaritySearch(query, 3);
-            console.log(
-                `Found ${searchResults.length} relevant documents for documentId: ${documentId}`
-            );
+            console.log(`Found ${searchResults.length} relevant documents for documentId: ${documentId}`);
             return searchResults;
         });
 
         if (results.length === 0) {
             return {
                 status: 'error',
-                message:
-                    'No relevant content found in the document. Please try a different query.',
+                message: 'No relevant content found in the document. Please try a different query.'
             };
         }
 
         // Use GPT to generate a summary
         const model = new ChatOpenAI({
             modelName: 'gpt-4',
-            temperature: 0,
+            temperature: 0
         });
 
-        const summaryPrompt = `Based on the following content from the document, provide a concise and coherent summary that addresses this query: "${query}"
+        const summaryPrompt = `Follow this query instructions: "${query}"
 
 Content:
-${results
-    .map((doc, i) => `[Document ${i + 1}]:\n${doc.pageContent}`)
-    .join('\n\n')}
+${results.map((doc, i) => `[Document ${i + 1}]:\n${doc.pageContent}`).join('\n\n')}
 
 Summary:`;
 
@@ -288,12 +257,8 @@ Summary:`;
                 typeof response.content === 'string'
                     ? response.content
                     : Array.isArray(response.content)
-                    ? response.content
-                          .map((c) =>
-                              typeof c === 'string' ? c : JSON.stringify(c)
-                          )
-                          .join(' ')
-                    : JSON.stringify(response.content),
+                    ? response.content.map((c) => (typeof c === 'string' ? c : JSON.stringify(c))).join(' ')
+                    : JSON.stringify(response.content)
         };
     } catch (error) {
         console.error('Error querying document:', error);
