@@ -5,12 +5,14 @@ import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
+import 'package:simple_grid/simple_grid.dart';
 
 import 'package:uuid/uuid.dart';
 
 import '../../../common/consts.dart';
 import '../bloc/chat_cubit.dart';
 import '../utils/chat_utills.dart';
+import '../widgets/custom_chat_bottom_widget.dart';
 
 class ChatScreen extends StatelessWidget {
   const ChatScreen({super.key});
@@ -114,28 +116,51 @@ class _ChatScreenContentState extends State<ChatScreenContent> {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      top: true,
       child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Ai Study Assistant'),
+        ),
         body: BlocBuilder<ChatCubit, ChatWidgetState>(
           builder: (context, state) {
-            return Column(
-              children: [
-                state.messages.isNotEmpty
-                    ? const Text('Take quiz')
-                    : const SizedBox(),
-                Expanded(
-                  child: Chat(
-                    messages: state.messages,
-                    onAttachmentPressed: _handleAttachmentPressed,
-                    onMessageTap: _handleMessageTap,
-                    onPreviewDataFetched: _handlePreviewDataFetched,
-                    onSendPressed: _handleSendPressed,
-                    showUserAvatars: true,
-                    showUserNames: true,
-                    user: user,
-                  ),
-                ),
-              ],
+            return LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                return SpGrid(
+                  width: MediaQuery.of(context).size.width,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    SpGridItem(
+                      sm: 10,
+                      md: 8,
+                      lg: 6,
+                      child: SizedBox(
+                        height: constraints.maxHeight,
+                        child: Column(
+                          children: [
+                            Expanded(
+                              child: Chat(
+                                messages: state.messages,
+                                customBottomWidget: CustomChatBottomWidget(
+                                  onAttachmentPressed: _handleAttachmentPressed,
+                                  onSendPressed: _handleSendPressed,
+                                  documentId: state.documentId,
+                                  isMessagesEmpty: state.messages.isNotEmpty,
+                                ),
+                                // onAttachmentPressed: _handleAttachmentPressed,
+                                onMessageTap: _handleMessageTap,
+                                onPreviewDataFetched: _handlePreviewDataFetched,
+                                onSendPressed: _handleSendPressed,
+                                showUserAvatars: true,
+                                showUserNames: true,
+                                user: user,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             );
           },
         ),

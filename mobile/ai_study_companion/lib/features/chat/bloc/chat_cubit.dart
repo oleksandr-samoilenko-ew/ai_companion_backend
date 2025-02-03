@@ -1,4 +1,3 @@
-import 'dart:developer';
 import 'dart:io';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -16,7 +15,8 @@ class ChatCubit extends Cubit<ChatWidgetState> {
   final ChatRepository chatRepository;
 
   ChatCubit({required this.chatRepository})
-      : super(ChatWidgetState(messages: [], attachedFilePaths: []));
+      : super(ChatWidgetState(
+            messages: [], attachedFilePaths: [], documentId: ''));
 
   void addMessage(types.Message message) {
     final updatedMessages = [message, ...state.messages];
@@ -47,8 +47,13 @@ class ChatCubit extends Cubit<ChatWidgetState> {
         files: state.attachedFilePaths,
       );
 
-      log('response.results>>> ${response.results}');
-      for (var result in response.results) {
+      emit(
+        state.copyWith(
+          documentId: response.results[0].documentId,
+        ),
+      );
+
+      for (final result in response.results) {
         final aiMessage = types.TextMessage(
           author: const types.User(id: 'ai'),
           createdAt: DateTime.now().millisecondsSinceEpoch,
@@ -69,6 +74,7 @@ class ChatCubit extends Cubit<ChatWidgetState> {
 
     clearAttachedFiles();
   }
+
   void handlePreviewDataFetched(
     types.TextMessage message,
     types.PreviewData previewData,
