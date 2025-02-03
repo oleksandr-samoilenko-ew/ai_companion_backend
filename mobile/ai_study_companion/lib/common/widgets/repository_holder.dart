@@ -1,3 +1,4 @@
+import 'package:ai_study_companion/features/qiz/repositories/quiz_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
@@ -21,6 +22,11 @@ class RepositoriesHolder extends StatelessWidget {
       providers: [
         RepositoryProvider<ChatRepository>(
           create: (context) => ChatRepositoryImpl(
+            apiService: apiService,
+          ),
+        ),
+        RepositoryProvider<QuizRepository>(
+          create: (context) => QuizRepositoryImpl(
             apiService: apiService,
           ),
         ),

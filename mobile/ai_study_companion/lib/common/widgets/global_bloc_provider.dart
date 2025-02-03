@@ -1,8 +1,10 @@
 import 'package:ai_study_companion/features/chat/repositories/chat_repository.dart';
+import 'package:ai_study_companion/features/qiz/repositories/quiz_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../features/chat/bloc/chat_cubit.dart';
+import '../../features/qiz/bloc/quiz_cubit.dart';
 
 class GlobalBlocProvider extends StatelessWidget {
   const GlobalBlocProvider({
@@ -19,6 +21,10 @@ class GlobalBlocProvider extends StatelessWidget {
         BlocProvider<ChatCubit>(
           create: (context) =>
               ChatCubit(chatRepository: context.read<ChatRepository>()),
+        ),
+        BlocProvider<QuizCubit>(
+          create: (context) =>
+              QuizCubit(quizRepository: context.read<QuizRepository>()),
         ),
       ],
       child: child,
