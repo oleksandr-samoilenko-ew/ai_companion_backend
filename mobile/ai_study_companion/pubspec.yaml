@@ -26,6 +26,8 @@ dependencies:
   uuid: ^4.5.1
   image_picker: ^1.1.2
   mime: ^2.0.0
+  simple_grid: ^0.1.5
+
 
 
 dev_dependencies:
