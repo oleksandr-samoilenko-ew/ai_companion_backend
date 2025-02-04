@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:developer';
-
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+import 'package:universal_html/html.dart' as html;
 
 import '../features/chat/models/api_response.dart';
 import '../features/qiz/models/quiz_response.dart';
@@ -17,16 +19,29 @@ class ApiService {
     log('Sending request>>> query: $query, files: $files');
 
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/chat-with-context'),
-        headers: <String, String>{
-          'Content-Type': 'application/json; charset=UTF-8',
-        },
-        body: jsonEncode(<String, dynamic>{
-          'query': query,
-          "filePaths": files,
-        }),
-      );
+      var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/chat-with-context'));
+      request.fields['query'] = query;
+
+      for (var file in files) {
+        if (file.startsWith('blob:')) {
+          // Handle web file upload
+          final blob = await _urlToBlob(file);
+          final bytes = await _blobToBytes(blob);
+          final filename = 'file_${DateTime.now().millisecondsSinceEpoch}.png';
+          request.files.add(http.MultipartFile.fromBytes(
+            'files',
+            bytes,
+            filename: filename,
+            contentType: MediaType('image', 'png'),
+          ));
+        } else {
+          // Handle mobile file upload
+          request.files.add(await http.MultipartFile.fromPath('files', file));
+        }
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
 
       log('Response status code: ${response.statusCode}');
       log('Response body: ${response.body}');
@@ -36,9 +51,7 @@ class ApiService {
       if (response.statusCode == 200) {
         return ApiResponse.fromJson(decodedResponse);
       } else {
-        // Handle the error response
-        final errorMessage =
-            decodedResponse['message'] ?? 'Unknown error occurred';
+        final errorMessage = decodedResponse['message'] ?? 'Unknown error occurred';
         throw ApiException(
           'Server error: $errorMessage',
           statusCode: response.statusCode,
@@ -51,6 +64,21 @@ class ApiService {
     } catch (e) {
       throw ApiException('Unexpected error occurred: $e');
     }
+  }
+
+  Future<html.Blob> _urlToBlob(String url) async {
+    final response = await html.HttpRequest.request(
+      url,
+      responseType: 'blob',
+    );
+    return response.response as html.Blob;
+  }
+
+  Future<Uint8List> _blobToBytes(html.Blob blob) async {
+    final reader = html.FileReader();
+    reader.readAsArrayBuffer(blob);
+    await reader.onLoadEnd.first;
+    return reader.result as Uint8List;
   }
 
   Future<QuizResponse> generateQuiz({
@@ -73,7 +101,6 @@ class ApiService {
       if (response.statusCode == 200) {
         return QuizResponse.fromJson(decodedResponse);
       } else {
-        // Handle the error response
         final errorMessage =
             decodedResponse['message'] ?? 'Unknown error occurred';
         throw ApiException(
