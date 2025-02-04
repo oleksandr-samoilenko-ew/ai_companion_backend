@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:simple_grid/simple_grid.dart';
 
 import '../../../network/utils/network_util.dart';
 import '../bloc/quiz_cubit.dart';
@@ -34,41 +35,64 @@ class QuizScreenContent extends StatelessWidget {
     return SafeArea(
       child: Scaffold(
         appBar: AppBar(title: const Text('Quiz')),
-        body: BlocBuilder<QuizCubit, QuizState>(
-          builder: (context, state) {
-            switch (state.status) {
-              case LoadingStatus.initial:
-              case LoadingStatus.loading:
-                return const Center(child: CircularProgressIndicator());
-              case LoadingStatus.success:
-              case LoadingStatus.evaluated:
-                return Column(
-                  children: [
-                    Expanded(
-                      child: _buildQuizContent(context, state),
+        body: LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            return SpGrid(
+              width: MediaQuery.of(context).size.width,
+              alignment: WrapAlignment.center,
+              children: [
+                SpGridItem(
+                  sm: 10,
+                  md: 8,
+                  lg: 6,
+                  child: SizedBox(
+                    height: constraints.maxHeight,
+                    child: BlocBuilder<QuizCubit, QuizState>(
+                      builder: (context, state) {
+                        switch (state.status) {
+                          case LoadingStatus.initial:
+                          case LoadingStatus.loading:
+                            return const Center(
+                                child: CircularProgressIndicator());
+                          case LoadingStatus.success:
+                          case LoadingStatus.evaluated:
+                            return Column(
+                              children: [
+                                Expanded(
+                                  child: _buildQuizContent(context, state),
+                                ),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed:
+                                        state.status == LoadingStatus.evaluated
+                                            ? null
+                                            : () => context
+                                                .read<QuizCubit>()
+                                                .evaluateQuiz(),
+                                    style: ElevatedButton.styleFrom(
+                                      shape: const RoundedRectangleBorder(),
+                                      backgroundColor: Colors.blue,
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 16),
+                                    ),
+                                    child: const Text(
+                                      'Submit',
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          case LoadingStatus.failure:
+                            return Center(child: Text('Error: ${state.error}'));
+                        }
+                      },
                     ),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: state.status == LoadingStatus.evaluated
-                            ? null
-                            : () => context.read<QuizCubit>().evaluateQuiz(),
-                        style: ElevatedButton.styleFrom(
-                          shape: const RoundedRectangleBorder(),
-                          backgroundColor: Colors.blue,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: const Text(
-                          'Submit',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              case LoadingStatus.failure:
-                return Center(child: Text('Error: ${state.error}'));
-            }
+                  ),
+                ),
+              ],
+            );
           },
         ),
       ),
