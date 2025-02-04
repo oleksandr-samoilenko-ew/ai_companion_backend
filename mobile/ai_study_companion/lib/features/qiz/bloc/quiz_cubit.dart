@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../network/utils/network_util.dart';
 import '../models/quiz_response.dart';
 import '../repositories/quiz_repository.dart';
 
@@ -12,14 +13,14 @@ class QuizCubit extends Cubit<QuizState> {
   QuizCubit({required this.quizRepository}) : super(const QuizState());
 
   Future<void> generateQuiz(String documentId) async {
-    emit(state.copyWith(status: QuizStatus.loading));
+    emit(state.copyWith(status: LoadingStatus.loading));
 
     try {
       final quizResponse =
           await quizRepository.apiService.generateQuiz(documentId: documentId);
       emit(
         state.copyWith(
-          status: QuizStatus.success,
+          status: LoadingStatus.success,
           quizResponse: quizResponse,
           selectedAnswers: List.filled(quizResponse.quiz.length, ''),
         ),
@@ -27,7 +28,7 @@ class QuizCubit extends Cubit<QuizState> {
     } catch (e) {
       emit(
         state.copyWith(
-          status: QuizStatus.failure,
+          status: LoadingStatus.failure,
           error: e.toString(),
         ),
       );
@@ -43,21 +44,23 @@ class QuizCubit extends Cubit<QuizState> {
   Future<void> evaluateQuiz() async {
     if (state.quizResponse == null) return;
 
-    emit(state.copyWith(status: QuizStatus.loading));
+    emit(state.copyWith(status: LoadingStatus.loading));
 
     try {
       final evaluationResult = await quizRepository.apiService.evaluateQuiz(
         quizId: state.quizResponse!.quizId,
         answers: state.selectedAnswers,
       );
-      emit(state.copyWith(
-        status: QuizStatus.evaluated,
-        evaluationResult: evaluationResult,
-      ));
+      emit(
+        state.copyWith(
+          status: LoadingStatus.evaluated,
+          evaluationResult: evaluationResult,
+        ),
+      );
     } catch (e) {
       emit(
         state.copyWith(
-          status: QuizStatus.failure,
+          status: LoadingStatus.failure,
           error: e.toString(),
         ),
       );

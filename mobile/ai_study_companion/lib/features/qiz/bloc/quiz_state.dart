@@ -1,15 +1,14 @@
 part of 'quiz_cubit.dart';
-enum QuizStatus { initial, loading, success, evaluated, failure }
 
 class QuizState extends Equatable {
-  final QuizStatus status;
+  final LoadingStatus status;
   final QuizResponse? quizResponse;
   final List<String> selectedAnswers;
   final Map<String, dynamic>? evaluationResult;
   final String? error;
 
   const QuizState({
-    this.status = QuizStatus.initial,
+    this.status = LoadingStatus.initial,
     this.quizResponse,
     this.selectedAnswers = const [],
     this.evaluationResult,
@@ -17,7 +16,7 @@ class QuizState extends Equatable {
   });
 
   QuizState copyWith({
-    QuizStatus? status,
+    LoadingStatus? status,
     QuizResponse? quizResponse,
     List<String>? selectedAnswers,
     Map<String, dynamic>? evaluationResult,
