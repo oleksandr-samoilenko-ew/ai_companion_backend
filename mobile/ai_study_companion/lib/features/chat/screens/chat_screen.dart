@@ -45,9 +45,7 @@ class _ChatScreenContentState extends State<ChatScreenContent> {
   }
 
   Future<void> _handleFileSelection() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.any,
-    );
+    final result = await FilePicker.platform.pickFiles();
 
     if (result != null && result.files.single.path != null) {
       final message = types.FileMessage(
@@ -73,25 +71,23 @@ class _ChatScreenContentState extends State<ChatScreenContent> {
       maxWidth: 1440,
     );
 
-    if (result != null) {
-      for (final image in result) {
-        final bytes = await image.readAsBytes();
-        final decodedImage = await decodeImageFromList(bytes);
+    for (final image in result) {
+      final bytes = await image.readAsBytes();
+      final decodedImage = await decodeImageFromList(bytes);
 
-        final message = types.ImageMessage(
-          author: user,
-          createdAt: DateTime.now().millisecondsSinceEpoch,
-          height: decodedImage.height.toDouble(),
-          id: const Uuid().v4(),
-          name: image.name,
-          size: bytes.length,
-          uri: image.path,
-          width: decodedImage.width.toDouble(),
-        );
-        if (mounted) {
-          context.read<ChatCubit>().addMessage(message);
-          context.read<ChatCubit>().attachFile(image.path);
-        }
+      final message = types.ImageMessage(
+        author: user,
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+        height: decodedImage.height.toDouble(),
+        id: const Uuid().v4(),
+        name: image.name,
+        size: bytes.length,
+        uri: image.path,
+        width: decodedImage.width.toDouble(),
+      );
+      if (mounted) {
+        context.read<ChatCubit>().addMessage(message);
+        context.read<ChatCubit>().attachFile(image.path);
       }
     }
   }

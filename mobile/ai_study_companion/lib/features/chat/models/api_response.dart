@@ -1,23 +1,29 @@
 class ApiResponse {
   final String status;
-  final List<Result> results;
-  final List<ProcessedFile> processedFiles;
+  final List<Result>? results;
+  final List<ProcessedFile>? processedFiles;
+  final String? message;
+  final String? type;
 
   ApiResponse({
     required this.status,
-    required this.results,
-    required this.processedFiles,
+    this.results,
+    this.processedFiles,
+    this.message,
+    this.type,
   });
 
   factory ApiResponse.fromJson(Map<String, dynamic> json) {
     return ApiResponse(
       status: json['status'],
-      results: (json['results'] as List)
-          .map((result) => Result.fromJson(result))
-          .toList(),
-      processedFiles: (json['processedFiles'] as List)
-          .map((file) => ProcessedFile.fromJson(file))
-          .toList(),
+      results: json['results'] != null
+          ? (json['results'] as List).map((result) => Result.fromJson(result)).toList()
+          : null,
+      processedFiles: json['processedFiles'] != null
+          ? (json['processedFiles'] as List).map((file) => ProcessedFile.fromJson(file)).toList()
+          : null,
+      message: json['message'],
+      type: json['type'],
     );
   }
 }

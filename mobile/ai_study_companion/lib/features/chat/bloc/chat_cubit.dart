@@ -70,17 +70,31 @@ class ChatCubit extends Cubit<ChatWidgetState> {
 
       emit(
         state.copyWith(
-          documentId: response.results[0].documentId,
-          status: LoadingStatus.success, // Set status to success
+          status: LoadingStatus.success,
         ),
       );
 
-      for (final result in response.results) {
+      if (response.results != null) {
+        emit(
+          state.copyWith(
+            documentId: response.results![0].documentId,
+          ),
+        );
+        for (final result in response.results!) {
+          final aiMessage = types.TextMessage(
+            author: const types.User(id: 'ai'),
+            createdAt: DateTime.now().millisecondsSinceEpoch,
+            id: const Uuid().v4(),
+            text: result.message,
+          );
+          addMessage(aiMessage);
+        }
+      } else {
         final aiMessage = types.TextMessage(
           author: const types.User(id: 'ai'),
           createdAt: DateTime.now().millisecondsSinceEpoch,
           id: const Uuid().v4(),
-          text: result.message,
+          text: response.message!,
         );
         addMessage(aiMessage);
       }
@@ -141,9 +155,7 @@ class ChatCubit extends Cubit<ChatWidgetState> {
         final messages = List<types.Message>.from(state.messages);
         final index =
             messages.indexWhere((element) => element.id == message.id);
-        final updatedMessage = (messages[index] as types.FileMessage).copyWith(
-          isLoading: null,
-        );
+        final updatedMessage = messages[index] as types.FileMessage;
         messages[index] = updatedMessage;
         emit(state.copyWith(messages: messages));
       }
