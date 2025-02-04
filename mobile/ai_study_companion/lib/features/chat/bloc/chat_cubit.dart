@@ -7,6 +7,8 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../common/consts.dart';
+import '../../../network/utils/network_util.dart';
 import '../repositories/chat_repository.dart';
 
 part 'chat_state.dart';
@@ -15,8 +17,24 @@ class ChatCubit extends Cubit<ChatWidgetState> {
   final ChatRepository chatRepository;
 
   ChatCubit({required this.chatRepository})
-      : super(ChatWidgetState(
-            messages: [], attachedFilePaths: [], documentId: ''));
+      : super(
+          ChatWidgetState(
+            messages: [],
+            attachedFilePaths: [],
+            documentId: '',
+          ),
+        );
+
+  void updateMessageText(String text) {
+    emit(state.copyWith(currentMessageText: text));
+  }
+
+  void handleSendPressed() {
+    if (state.currentMessageText.isNotEmpty) {
+      sendMessage(types.PartialText(text: state.currentMessageText), user);
+      emit(state.copyWith(currentMessageText: ''));
+    }
+  }
 
   void addMessage(types.Message message) {
     final updatedMessages = [message, ...state.messages];
@@ -41,6 +59,9 @@ class ChatCubit extends Cubit<ChatWidgetState> {
     );
     addMessage(textMessage);
 
+    // Set status to loading
+    emit(state.copyWith(status: LoadingStatus.loading));
+
     try {
       final response = await chatRepository.apiService.sendMessage(
         query: message.text,
@@ -50,6 +71,7 @@ class ChatCubit extends Cubit<ChatWidgetState> {
       emit(
         state.copyWith(
           documentId: response.results[0].documentId,
+          status: LoadingStatus.success, // Set status to success
         ),
       );
 
@@ -70,6 +92,9 @@ class ChatCubit extends Cubit<ChatWidgetState> {
         text: 'Error: $e',
       );
       addMessage(errorMessage);
+
+      // Set status to failure in case of error
+      emit(state.copyWith(status: LoadingStatus.failure));
     }
 
     clearAttachedFiles();

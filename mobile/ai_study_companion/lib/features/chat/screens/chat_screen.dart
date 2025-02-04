@@ -141,11 +141,7 @@ class _ChatScreenContentState extends State<ChatScreenContent> {
                                 messages: state.messages,
                                 customBottomWidget: CustomChatBottomWidget(
                                   onAttachmentPressed: _handleAttachmentPressed,
-                                  onSendPressed: _handleSendPressed,
-                                  documentId: state.documentId,
-                                  isMessagesEmpty: state.messages.isNotEmpty,
                                 ),
-                                // onAttachmentPressed: _handleAttachmentPressed,
                                 onMessageTap: _handleMessageTap,
                                 onPreviewDataFetched: _handlePreviewDataFetched,
                                 onSendPressed: _handleSendPressed,

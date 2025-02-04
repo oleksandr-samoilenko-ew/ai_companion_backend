@@ -1,61 +1,54 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
+import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../network/utils/network_util.dart';
 import '../../qiz/screens/quiz_screen.dart';
+import '../bloc/chat_cubit.dart';
 
-class CustomChatBottomWidget extends StatefulWidget {
+class CustomChatBottomWidget extends StatelessWidget {
   final void Function() onAttachmentPressed;
-  final Future<void> Function(types.PartialText) onSendPressed;
-  final String? documentId;
-  final bool isMessagesEmpty;
 
   const CustomChatBottomWidget({
     super.key,
     required this.onAttachmentPressed,
-    required this.onSendPressed,
-    this.documentId,
-    this.isMessagesEmpty = false,
   });
 
   @override
-  _CustomChatBottomWidgetState createState() => _CustomChatBottomWidgetState();
-}
-
-class _CustomChatBottomWidgetState extends State<CustomChatBottomWidget> {
-  final TextEditingController _textController = TextEditingController();
-
-  @override
-  void dispose() {
-    _textController.dispose();
-    super.dispose();
-  }
-
-  void _handleSendPressed() {
-    final text = _textController.text.trim();
-    if (text.isNotEmpty) {
-      widget.onSendPressed(types.PartialText(text: text));
-      _textController.clear();
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final chatCubit = context.watch<ChatCubit>();
+
     return Column(
       children: [
-        if (widget.documentId != null && widget.isMessagesEmpty)
-          Padding(
-            padding: const EdgeInsets.all(8.0),
+        if (chatCubit.state.status == LoadingStatus.loading)
+          const Padding(
+            padding: EdgeInsets.all(8.0),
+            child: Center(
+              child: CircularProgressIndicator(),
+            ),
+          ),
+        if (chatCubit.state.documentId != null &&
+            chatCubit.state.documentId!.isNotEmpty)
+          SizedBox(
+            width: double.infinity,
             child: ElevatedButton(
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (context) => QuizScreen(
-                      documentId: widget.documentId!,
+                      documentId: chatCubit.state.documentId!,
                     ),
                   ),
                 );
               },
-              child: const Text('Start Quiz'),
+              style: ElevatedButton.styleFrom(
+                shape: const RoundedRectangleBorder(),
+                backgroundColor: Colors.blue,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+              child: const Text(
+                'Start Quiz',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ),
         Container(
@@ -64,21 +57,29 @@ class _CustomChatBottomWidgetState extends State<CustomChatBottomWidget> {
           child: Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.attach_file),
-                onPressed: widget.onAttachmentPressed,
+                icon: const Icon(
+                  Icons.attach_file,
+                  color: Colors.grey,
+                ),
+                onPressed: onAttachmentPressed,
               ),
               Expanded(
                 child: TextField(
-                  controller: _textController,
                   decoration: const InputDecoration(
                     hintText: 'Type a message',
+                    hintStyle: TextStyle(color: Colors.grey),
                     border: InputBorder.none,
                   ),
+                  style: const TextStyle(color: Colors.grey),
+                  onChanged: (value) => chatCubit.updateMessageText(value),
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.send),
-                onPressed: _handleSendPressed,
+                icon: const Icon(
+                  Icons.send,
+                  color: Colors.grey,
+                ),
+                onPressed: () => chatCubit.handleSendPressed(),
               ),
             ],
           ),
