@@ -17,8 +17,13 @@ const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
 // Initialize Pinecone
 const pinecone = new pinecone_2.Pinecone({
-    apiKey: process.env.PINECONE_API_KEY
+    apiKey: process.env.PINECONE_API_KEY,
 });
+// Initialize Pinecone index name with type checking
+const pineconeIndexName = process.env.PINECONE_INDEX_NAME;
+if (!pineconeIndexName) {
+    throw new Error('PINECONE_INDEX_NAME environment variable is not defined');
+}
 // Define the quiz question schema
 const quizQuestionSchema = zod_1.z.object({
     question: zod_1.z.string(),
@@ -26,10 +31,10 @@ const quizQuestionSchema = zod_1.z.object({
         A: zod_1.z.string(),
         B: zod_1.z.string(),
         C: zod_1.z.string(),
-        D: zod_1.z.string()
+        D: zod_1.z.string(),
     }),
     correctAnswer: zod_1.z.enum(['A', 'B', 'C', 'D']),
-    explanation: zod_1.z.string()
+    explanation: zod_1.z.string(),
 });
 const quizSchema = zod_1.z.array(quizQuestionSchema);
 // Update the system prompt to be more explicit about JSON formatting
@@ -62,18 +67,18 @@ const fetchDocumentContentTool = new tools_1.DynamicStructuredTool({
     name: 'fetch_document_content',
     description: 'Fetch document content from Pinecone by documentId',
     schema: zod_1.z.object({
-        documentId: zod_1.z.string()
+        documentId: zod_1.z.string(),
     }),
     func: async ({ documentId }) => {
-        const index = pinecone.Index('study-companion-db');
+        const index = pinecone.Index(pineconeIndexName);
         const embeddings = new openai_2.OpenAIEmbeddings();
         const vectorStore = await pinecone_1.PineconeStore.fromExistingIndex(embeddings, {
             pineconeIndex: index,
-            filter: { documentId }
+            filter: { documentId },
         });
         const results = await vectorStore.similaritySearch('', 10);
         return results.map((doc) => doc.pageContent).join('\n\n');
-    }
+    },
 });
 // Define the tools for the agent to use
 const tools = [fetchDocumentContentTool];
@@ -81,7 +86,7 @@ const toolNode = new prebuilt_1.ToolNode(tools);
 // Create quiz generation model and bind tools
 const model = new openai_1.ChatOpenAI({
     modelName: 'gpt-4o-mini',
-    temperature: 0.7
+    temperature: 0.7,
 }).bindTools(tools);
 // Define the function that determines whether to continue or not
 function shouldContinue({ messages }) {
@@ -111,15 +116,17 @@ async function generateQuiz(documentId) {
         // Initialize the workflow with the system message and initial query
         const initialMessages = [
             new messages_1.SystemMessage(SYSTEM_PROMPT),
-            new messages_1.HumanMessage(`Create a quiz with 2 multiple choice questions based on the content from document ID: ${documentId}. Remember to return ONLY the JSON array with no additional text.`)
+            new messages_1.HumanMessage(`Create a quiz with 2 multiple choice questions based on the content from document ID: ${documentId}. Remember to return ONLY the JSON array with no additional text.`),
         ];
         // Run the workflow
         const result = await app.invoke({
-            messages: initialMessages
+            messages: initialMessages,
         });
         // Parse the final response
         const lastMessage = result.messages[result.messages.length - 1];
-        let rawQuiz = typeof lastMessage.content === 'string' ? lastMessage.content : JSON.stringify(lastMessage.content);
+        let rawQuiz = typeof lastMessage.content === 'string'
+            ? lastMessage.content
+            : JSON.stringify(lastMessage.content);
         // Clean up the response to ensure valid JSON
         rawQuiz = rawQuiz.trim();
         // Remove any markdown code block markers if present

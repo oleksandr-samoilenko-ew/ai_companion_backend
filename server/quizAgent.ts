@@ -13,8 +13,14 @@ dotenv.config();
 
 // Initialize Pinecone
 const pinecone = new Pinecone({
-    apiKey: process.env.PINECONE_API_KEY!
+    apiKey: process.env.PINECONE_API_KEY!,
 });
+
+// Initialize Pinecone index name with type checking
+const pineconeIndexName = process.env.PINECONE_INDEX_NAME;
+if (!pineconeIndexName) {
+    throw new Error('PINECONE_INDEX_NAME environment variable is not defined');
+}
 
 // Define the quiz question schema
 const quizQuestionSchema = z.object({
@@ -23,10 +29,10 @@ const quizQuestionSchema = z.object({
         A: z.string(),
         B: z.string(),
         C: z.string(),
-        D: z.string()
+        D: z.string(),
     }),
     correctAnswer: z.enum(['A', 'B', 'C', 'D']),
-    explanation: z.string()
+    explanation: z.string(),
 });
 
 const quizSchema = z.array(quizQuestionSchema);
@@ -62,18 +68,18 @@ const fetchDocumentContentTool = new DynamicStructuredTool({
     name: 'fetch_document_content',
     description: 'Fetch document content from Pinecone by documentId',
     schema: z.object({
-        documentId: z.string()
+        documentId: z.string(),
     }),
     func: async ({ documentId }) => {
-        const index = pinecone.Index('study-companion-db');
+        const index = pinecone.Index(pineconeIndexName);
         const embeddings = new OpenAIEmbeddings();
         const vectorStore = await PineconeStore.fromExistingIndex(embeddings, {
             pineconeIndex: index,
-            filter: { documentId }
+            filter: { documentId },
         });
         const results = await vectorStore.similaritySearch('', 10);
         return results.map((doc) => doc.pageContent).join('\n\n');
-    }
+    },
 });
 
 // Define the tools for the agent to use
@@ -83,7 +89,7 @@ const toolNode = new ToolNode(tools);
 // Create quiz generation model and bind tools
 const model = new ChatOpenAI({
     modelName: 'gpt-4o-mini',
-    temperature: 0.7
+    temperature: 0.7,
 }).bindTools(tools);
 
 // Define the function that determines whether to continue or not
@@ -120,17 +126,20 @@ export async function generateQuiz(documentId: string): Promise<any> {
             new SystemMessage(SYSTEM_PROMPT),
             new HumanMessage(
                 `Create a quiz with 2 multiple choice questions based on the content from document ID: ${documentId}. Remember to return ONLY the JSON array with no additional text.`
-            )
+            ),
         ];
 
         // Run the workflow
         const result = await app.invoke({
-            messages: initialMessages
+            messages: initialMessages,
         });
 
         // Parse the final response
         const lastMessage = result.messages[result.messages.length - 1];
-        let rawQuiz = typeof lastMessage.content === 'string' ? lastMessage.content : JSON.stringify(lastMessage.content);
+        let rawQuiz =
+            typeof lastMessage.content === 'string'
+                ? lastMessage.content
+                : JSON.stringify(lastMessage.content);
 
         // Clean up the response to ensure valid JSON
         rawQuiz = rawQuiz.trim();
@@ -149,7 +158,9 @@ export async function generateQuiz(documentId: string): Promise<any> {
         } catch (parseError) {
             console.error('Raw quiz content:', rawQuiz);
             console.error('JSON parsing error:', parseError);
-            throw new Error('Failed to parse quiz response. The model returned invalid JSON.');
+            throw new Error(
+                'Failed to parse quiz response. The model returned invalid JSON.'
+            );
         }
     } catch (error) {
         console.error('Error in quiz generation:', error);
