@@ -7,44 +7,40 @@ exports.handleDocumentProcessing = handleDocumentProcessing;
 const documentAgent_1 = require("../documentAgent");
 const fs_1 = __importDefault(require("fs"));
 async function handleDocumentProcessing(req, res) {
-    // Get query from either form-data or JSON body
-    const query = req.body.query ||
-        req.query ||
-        'give brief summary of these files';
-    const filePaths = Array.isArray(req.body.filePaths)
-        ? req.body.filePaths
-        : [];
-    let filesToProcess = [];
-    // Check if files were uploaded via multer
-    const uploadedFiles = req.files;
-    if (uploadedFiles && uploadedFiles.length > 0) {
-        console.log('Processing uploaded files:', uploadedFiles.map((f) => f.originalname));
-        filesToProcess.push(...uploadedFiles.map((file) => ({
-            path: file.path,
-            originalname: file.originalname,
-        })));
-    }
-    // Add manually specified file paths
-    if (filePaths.length > 0) {
-        console.log('Processing file paths:', filePaths);
-        filesToProcess.push(...filePaths.map((filePath) => ({
-            path: filePath,
-            originalname: filePath.split('/').pop() || filePath,
-        })));
-    }
-    // If no files were provided (neither uploaded nor paths), use default files
-    // if (filesToProcess.length === 0) {
-    //     console.log('No files provided, using default files');
-    //     filesToProcess = [
-    //         {
-    //             path: '/Users/alex/StudioProjects/trainings/ai-study-companion-app/server/test/ai_sample.png',
-    //             originalname: 'ai_sample.png',
-    //         },
-    //     ];
-    // }
-    // Generate a single documentId for all files
-    const sharedDocumentId = `doc_${Math.random().toString(36).substring(7)}`;
     try {
+        // Get query from either form-data or JSON body
+        const query = req.body.query || req.query || 'give brief summary of these files';
+        const filePaths = Array.isArray(req.body.filePaths) ? req.body.filePaths : [];
+        let filesToProcess = [];
+        // Check if files were uploaded via multer
+        const uploadedFiles = req.files;
+        if (uploadedFiles && uploadedFiles.length > 0) {
+            console.log('Processing uploaded files:', uploadedFiles.map((f) => f.originalname));
+            filesToProcess.push(...uploadedFiles.map((file) => ({
+                path: file.path,
+                originalname: file.originalname
+            })));
+        }
+        // Add manually specified file paths
+        if (filePaths.length > 0) {
+            console.log('Processing file paths:', filePaths);
+            filesToProcess.push(...filePaths.map((filePath) => ({
+                path: filePath,
+                originalname: filePath.split('/').pop() || filePath
+            })));
+        }
+        // If no files were provided, use direct chat
+        if (filesToProcess.length === 0) {
+            console.log('No files provided, using direct chat');
+            const chatResult = await (0, documentAgent_1.chatWithContext)(query);
+            return res.json({
+                status: 'success',
+                message: chatResult.message,
+                type: 'direct_chat'
+            });
+        }
+        // If files were provided, continue with document processing
+        const sharedDocumentId = `doc_${Math.random().toString(36).substring(7)}`;
         // Process all documents
         const processedDocs = [];
         for (const file of filesToProcess) {
@@ -56,7 +52,7 @@ async function handleDocumentProcessing(req, res) {
                         documentId: sharedDocumentId,
                         fileName: file.originalname,
                         status: 'error',
-                        message: 'File not found',
+                        message: 'File not found'
                     });
                     continue;
                 }
@@ -64,7 +60,7 @@ async function handleDocumentProcessing(req, res) {
                 processedDocs.push({
                     documentId: processResult.documentId,
                     fileName: file.originalname,
-                    status: processResult.status,
+                    status: processResult.status
                 });
                 // Only delete the file if it was uploaded via multer
                 if (uploadedFiles?.some((f) => f.path === file.path)) {
@@ -80,7 +76,7 @@ async function handleDocumentProcessing(req, res) {
                     documentId: sharedDocumentId,
                     fileName: file.originalname,
                     status: 'error',
-                    message: error instanceof Error ? error.message : String(error),
+                    message: error instanceof Error ? error.message : String(error)
                 });
             }
         }
@@ -90,13 +86,11 @@ async function handleDocumentProcessing(req, res) {
             return res.status(500).json({
                 status: 'error',
                 message: 'Failed to process any documents',
-                processedFiles: processedDocs,
+                processedFiles: processedDocs
             });
         }
         // Get unique documentIds
-        const uniqueDocumentIds = [
-            ...new Set(successfulDocs.map((doc) => doc.documentId)),
-        ];
+        const uniqueDocumentIds = [...new Set(successfulDocs.map((doc) => doc.documentId))];
         // Query once per unique documentId
         const queryResults = await Promise.all(uniqueDocumentIds.map(async (documentId) => {
             const docsWithThisId = successfulDocs.filter((doc) => doc.documentId === documentId);
@@ -106,7 +100,7 @@ async function handleDocumentProcessing(req, res) {
                 return {
                     ...result,
                     fileNames,
-                    documentId,
+                    documentId
                 };
             }
             catch (error) {
@@ -115,7 +109,7 @@ async function handleDocumentProcessing(req, res) {
                     status: 'error',
                     message: `Failed to query documents`,
                     fileNames,
-                    documentId,
+                    documentId
                 };
             }
         }));
@@ -123,6 +117,7 @@ async function handleDocumentProcessing(req, res) {
             status: 'success',
             results: queryResults,
             processedFiles: processedDocs,
+            type: 'document_query'
         });
     }
     catch (error) {
@@ -130,7 +125,7 @@ async function handleDocumentProcessing(req, res) {
         res.status(500).json({
             status: 'error',
             message: 'Error processing request',
-            error: error instanceof Error ? error.message : String(error),
+            error: error instanceof Error ? error.message : String(error)
         });
     }
 }
