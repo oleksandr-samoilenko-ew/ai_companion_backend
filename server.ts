@@ -1,13 +1,12 @@
 import express, { Request, Response, NextFunction } from 'express';
+import bodyParser from 'body-parser';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { handleDocumentProcessing } from '../routes/documentRoutes';
-import { handleQuizGeneration, handleQuizEvaluation } from '../routes/quizRoutes';
-import dotenv from 'dotenv';
-dotenv.config();
+import { handleDocumentProcessing } from './routes/documentRoutes';
+import { handleQuizGeneration, handleQuizEvaluation } from './routes/quizRoutes';
 
-export const app = express();
+const app = express();
 const port = 3000;
 
 // Middleware setup - only parse JSON for specific content types
@@ -22,7 +21,7 @@ app.use((req, res, next) => {
 // File handling setup
 const storage = multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, 'uploads/'),
-    filename: (_req, file, cb) => cb(null, `${Date.now()}_${file.originalname}`),
+    filename: (_req, file, cb) => cb(null, `${Date.now()}_${file.originalname}`)
 });
 
 const upload = multer({ storage });
@@ -64,7 +63,7 @@ app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
     if (!res.headersSent) {
         res.status(500).json({
             status: 'error',
-            message: err.message,
+            message: err.message
         });
     }
     next(err);

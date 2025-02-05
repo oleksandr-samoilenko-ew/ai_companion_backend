@@ -3,6 +3,7 @@ import { DocxLoader } from '@langchain/community/document_loaders/fs/docx';
 import { CSVLoader } from '@langchain/community/document_loaders/fs/csv';
 import * as path from 'path';
 import { createWorker } from 'tesseract.js';
+import * as fs from 'fs';
 
 export class FileHandlerService {
     static async extractContent(filePath: string): Promise<string> {
@@ -22,10 +23,7 @@ export class FileHandlerService {
         throw new Error(`Unsupported file type: ${extension}`);
     }
 
-    private static getLoaderForFileType(
-        fileExtension: string,
-        filePath: string
-    ) {
+    private static getLoaderForFileType(fileExtension: string, filePath: string) {
         switch (fileExtension) {
             case '.pdf':
                 return new PDFLoader(filePath, { splitPages: false });
@@ -38,16 +36,14 @@ export class FileHandlerService {
         }
     }
 
-    private static async extractImageContent(
-        filePath: string
-    ): Promise<string> {
+    private static async extractImageContent(filePath: string): Promise<string> {
         // Initialize Tesseract.js worker
         const worker = await createWorker('eng');
 
         try {
             // Perform OCR on the image
             const {
-                data: { text },
+                data: { text }
             } = await worker.recognize(filePath);
             return text;
         } finally {

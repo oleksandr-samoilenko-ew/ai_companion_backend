@@ -39,7 +39,7 @@ const quizQuestionSchema = zod_1.z.object({
 const quizSchema = zod_1.z.array(quizQuestionSchema);
 // Update the system prompt to be more explicit about JSON formatting
 const SYSTEM_PROMPT = `You are a quiz generator that creates multiple choice questions. 
-You must ALWAYS respond with ONLY a valid JSON array of exactly 2 questions, with no additional text or formatting.
+You must ALWAYS respond with ONLY a valid JSON array of exactly 5 questions, with no additional text or formatting.
 Each question must have these exact fields:
 - question: string
 - options: object with A, B, C, D keys and string values
@@ -70,6 +70,7 @@ const fetchDocumentContentTool = new tools_1.DynamicStructuredTool({
         documentId: zod_1.z.string(),
     }),
     func: async ({ documentId }) => {
+        console.log(`[Quiz Generation] Fetching document content for documentId: ${documentId}`);
         const index = pinecone.Index(pineconeIndexName);
         const embeddings = new openai_2.OpenAIEmbeddings();
         const vectorStore = await pinecone_1.PineconeStore.fromExistingIndex(embeddings, {
@@ -77,6 +78,7 @@ const fetchDocumentContentTool = new tools_1.DynamicStructuredTool({
             filter: { documentId },
         });
         const results = await vectorStore.similaritySearch('', 10);
+        console.log(`[Quiz Generation] Retrieved ${results.length} chunks from Pinecone`);
         return results.map((doc) => doc.pageContent).join('\n\n');
     },
 });
@@ -98,13 +100,17 @@ function shouldContinue({ messages }) {
 }
 // Define the function that calls the model
 async function callModel(state) {
+    console.log('[Quiz Generation] Calling model to generate quiz questions');
     const response = await model.invoke(state.messages);
+    console.log('[Quiz Generation] Received response from model');
     return { messages: [response] };
 }
 // Create the workflow
 async function generateQuiz(documentId) {
+    console.log(`[Quiz Generation] Starting quiz generation for document: ${documentId}`);
     try {
         // Create the graph
+        console.log('[Quiz Generation] Creating workflow graph');
         const workflow = new langgraph_1.StateGraph(langgraph_1.MessagesAnnotation)
             .addNode('agent', callModel)
             .addEdge('__start__', 'agent')
@@ -112,22 +118,27 @@ async function generateQuiz(documentId) {
             .addEdge('tools', 'agent')
             .addConditionalEdges('agent', shouldContinue);
         // Compile the graph
+        console.log('[Quiz Generation] Compiling workflow graph');
         const app = workflow.compile();
         // Initialize the workflow with the system message and initial query
+        console.log('[Quiz Generation] Initializing workflow with system message');
         const initialMessages = [
             new messages_1.SystemMessage(SYSTEM_PROMPT),
-            new messages_1.HumanMessage(`Create a quiz with 2 multiple choice questions based on the content from document ID: ${documentId}. Remember to return ONLY the JSON array with no additional text.`),
+            new messages_1.HumanMessage(`Create a quiz with 5 multiple choice questions based on the content from document ID: ${documentId}. Remember to return ONLY the JSON array with no additional text.`),
         ];
         // Run the workflow
+        console.log('[Quiz Generation] Running workflow to generate quiz');
         const result = await app.invoke({
             messages: initialMessages,
         });
         // Parse the final response
+        console.log('[Quiz Generation] Processing model response');
         const lastMessage = result.messages[result.messages.length - 1];
         let rawQuiz = typeof lastMessage.content === 'string'
             ? lastMessage.content
             : JSON.stringify(lastMessage.content);
         // Clean up the response to ensure valid JSON
+        console.log('[Quiz Generation] Cleaning and parsing quiz JSON');
         rawQuiz = rawQuiz.trim();
         // Remove any markdown code block markers if present
         rawQuiz = rawQuiz
@@ -136,19 +147,21 @@ async function generateQuiz(documentId) {
             .replace(/\s*```$/, '');
         try {
             // Try to parse the JSON
+            console.log('[Quiz Generation] Attempting to parse and validate quiz structure');
             const parsedQuiz = JSON.parse(rawQuiz);
             // Validate the quiz structure
             const quiz = quizSchema.parse(parsedQuiz);
+            console.log(`[Quiz Generation] Successfully generated quiz with ${quiz.length} questions`);
             return quiz;
         }
         catch (parseError) {
-            console.error('Raw quiz content:', rawQuiz);
-            console.error('JSON parsing error:', parseError);
+            console.error('[Quiz Generation] Failed to parse quiz response:', rawQuiz);
+            console.error('[Quiz Generation] JSON parsing error:', parseError);
             throw new Error('Failed to parse quiz response. The model returned invalid JSON.');
         }
     }
     catch (error) {
-        console.error('Error in quiz generation:', error);
+        console.error('[Quiz Generation] Error in quiz generation:', error);
         throw error;
     }
 }
