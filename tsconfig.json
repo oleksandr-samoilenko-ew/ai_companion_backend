@@ -4,7 +4,7 @@
         "module": "commonjs",
         "noImplicitReturns": true,
         "noUnusedLocals": true,
-        "outDir": "lib",
+        "outDir": "public",
         "sourceMap": true,
         "strict": true,
         "esModuleInterop": true,
