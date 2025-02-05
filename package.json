@@ -7,7 +7,7 @@
     },
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
-        "build": "tsc && cp -r lib/* public/",
+        "build": "tsc",
         "watch": "tsc --watch",
         "start": "npm run build && node lib/index.js",
         "dev": "tsc --watch & nodemon lib/index.js",
