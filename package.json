@@ -12,7 +12,8 @@
         "start": "npm run build && node lib/index.js",
         "dev": "tsc --watch & nodemon lib/index.js",
         "serve": "npm run build && firebase emulators:start --only functions",
-        "deploy": "firebase deploy --only functions"
+        "deploy": "firebase deploy --only functions",
+        "clean": "rimraf lib/*"
     },
     "author": "",
     "license": "ISC",

@@ -3,11 +3,11 @@ import bodyParser from 'body-parser';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { handleDocumentProcessing } from './routes/documentRoutes';
+import { handleDocumentProcessing } from '../routes/documentRoutes';
 import {
     handleQuizGeneration,
     handleQuizEvaluation,
-} from './routes/quizRoutes';
+} from '../routes/quizRoutes';
 
 export const app = express();
 const port = 3000;
