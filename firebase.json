@@ -1,8 +1,8 @@
 {
     "functions": {
         "source": ".",
-        "runtime": "nodejs18",
-        "predeploy": ["npm run build"]
+        "runtime": "nodejs20",
+        "predeploy": ["npm --prefix \"$RESOURCE_DIR\" run build"]
     },
     "hosting": {
         "public": "dist",

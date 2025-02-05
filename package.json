@@ -1,7 +1,10 @@
 {
     "name": "ai-study-companion-app",
     "version": "1.0.0",
-    "main": "index.js",
+    "main": "lib/index.js",
+    "engines": {
+        "node": "20"
+    },
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
         "build": "tsc",
