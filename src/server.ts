@@ -1,13 +1,11 @@
 import express, { Request, Response, NextFunction } from 'express';
-import bodyParser from 'body-parser';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { handleDocumentProcessing } from '../routes/documentRoutes';
-import {
-    handleQuizGeneration,
-    handleQuizEvaluation,
-} from '../routes/quizRoutes';
+import { handleQuizGeneration, handleQuizEvaluation } from '../routes/quizRoutes';
+import dotenv from 'dotenv';
+dotenv.config();
 
 export const app = express();
 const port = 3000;
@@ -24,8 +22,7 @@ app.use((req, res, next) => {
 // File handling setup
 const storage = multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, 'uploads/'),
-    filename: (_req, file, cb) =>
-        cb(null, `${Date.now()}_${file.originalname}`),
+    filename: (_req, file, cb) => cb(null, `${Date.now()}_${file.originalname}`),
 });
 
 const upload = multer({ storage });
@@ -33,14 +30,8 @@ const upload = multer({ storage });
 // CORS middleware
 app.use(function (req: Request, res: Response, next: NextFunction) {
     res.header('Access-Control-Allow-Origin', '*');
-    res.header(
-        'Access-Control-Allow-Methods',
-        'GET, POST, PUT, DELETE, OPTIONS'
-    );
-    res.header(
-        'Access-Control-Allow-Headers',
-        'Origin, X-Requested-With, Content-Type, Accept'
-    );
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
     if (req.method === 'OPTIONS') {
         res.sendStatus(200);
         return;
@@ -61,11 +52,7 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 app.use((req: Request, res: Response, next: NextFunction) => {
     const originalJson = res.json;
     res.json = function (body) {
-        console.log(
-            `[${new Date().toISOString()}] Response ${res.statusCode} for ${
-                req.url
-            }`
-        );
+        console.log(`[${new Date().toISOString()}] Response ${res.statusCode} for ${req.url}`);
         return originalJson.call(this, body);
     };
     next();
@@ -84,10 +71,8 @@ app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
 });
 
 // Async handler wrapper
-const asyncHandler =
-    (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) =>
-    (req: Request, res: Response, next: NextFunction) =>
-        Promise.resolve(fn(req, res, next)).catch(next);
+const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) => (req: Request, res: Response, next: NextFunction) =>
+    Promise.resolve(fn(req, res, next)).catch(next);
 
 // Initialize directories
 ['uploads', 'logs'].forEach((dir) => {
@@ -102,11 +87,7 @@ fs.readdirSync('uploads').forEach((file) => {
 });
 
 // Routes
-app.post(
-    '/api/chat-with-context',
-    upload.array('files', 5),
-    asyncHandler(handleDocumentProcessing)
-);
+app.post('/api/chat-with-context', upload.array('files', 5), asyncHandler(handleDocumentProcessing));
 app.post('/api/quiz/generate', asyncHandler(handleQuizGeneration));
 app.post('/api/quiz/evaluate', asyncHandler(handleQuizEvaluation));
 
