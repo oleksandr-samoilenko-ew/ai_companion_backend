@@ -9,7 +9,7 @@
         "test": "echo \"Error: no test specified\" && exit 1",
         "build": "tsc && mkdir -p lib public && cp -r lib/* public/",
         "watch": "tsc --watch",
-        "start": "npm run build && node lib/index.js",
+        "start": "node lib/index.js",
         "dev": "tsc --watch & nodemon lib/index.js",
         "serve": "npm run build && firebase emulators:start --only functions",
         "deploy": "firebase deploy --only functions",
