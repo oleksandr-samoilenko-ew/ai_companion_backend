@@ -1,0 +1,9 @@
+node_modules
+lib
+.firebase
+*.log
+.env
+/test/
+/ai_sample.png
+/eng.traineddata
+/test_file.pdf
