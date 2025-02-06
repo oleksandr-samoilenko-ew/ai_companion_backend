@@ -10,6 +10,7 @@ import '../features/qiz/models/quiz_response.dart';
 import '../network/exceptions/api_exceptions.dart';
 
 const String baseUrl = 'http://localhost:3000/api';
+// const String baseUrl = 'https://ai-companion-backend-e7rhauvkg-alexs-projects-54041ff0.vercel.app/api';
 
 class ApiService {
   Future<ApiResponse> sendMessage({
@@ -19,21 +20,26 @@ class ApiService {
     log('Sending request>>> query: $query, files: $files');
 
     try {
-      var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/chat-with-context'));
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/chat-with-context'),
+      );
       request.fields['query'] = query;
 
-      for (var file in files) {
+      for (final file in files) {
         if (file.startsWith('blob:')) {
           // Handle web file upload
           final blob = await _urlToBlob(file);
           final bytes = await _blobToBytes(blob);
           final filename = 'file_${DateTime.now().millisecondsSinceEpoch}.png';
-          request.files.add(http.MultipartFile.fromBytes(
-            'files',
-            bytes,
-            filename: filename,
-            contentType: MediaType('image', 'png'),
-          ));
+          request.files.add(
+            http.MultipartFile.fromBytes(
+              'files',
+              bytes,
+              filename: filename,
+              contentType: MediaType('image', 'png'),
+            ),
+          );
         } else {
           // Handle mobile file upload
           request.files.add(await http.MultipartFile.fromPath('files', file));
@@ -51,7 +57,8 @@ class ApiService {
       if (response.statusCode == 200) {
         return ApiResponse.fromJson(decodedResponse);
       } else {
-        final errorMessage = decodedResponse['message'] ?? 'Unknown error occurred';
+        final errorMessage =
+            decodedResponse['message'] ?? 'Unknown error occurred';
         throw ApiException(
           'Server error: $errorMessage',
           statusCode: response.statusCode,
@@ -139,11 +146,55 @@ class ApiService {
       if (response.statusCode == 200) {
         return decodedResponse;
       } else {
-        final errorMessage = decodedResponse['message'] ?? 'Unknown error occurred';
-        throw ApiException('Server error: $errorMessage', statusCode: response.statusCode);
+        final errorMessage =
+            decodedResponse['message'] ?? 'Unknown error occurred';
+        throw ApiException(
+          'Server error: $errorMessage',
+          statusCode: response.statusCode,
+        );
       }
     } catch (e) {
       throw ApiException('Error evaluating quiz: $e');
+    }
+  }
+
+  Future<bool> submitCreds({
+    required String openAiKey,
+    required String pineconeApiKey,
+    required String pineconeIndexname,
+  }) async {
+    log('Sending credentials to server: $openAiKey, $pineconeApiKey, $pineconeIndexname');
+
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/set-credentials'),
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+        body: jsonEncode(
+          <String, dynamic>{
+            "openaiApiKey": openAiKey,
+            "pineconeApiKey": pineconeApiKey,
+            "pineconeIndexName": pineconeIndexname,
+          },
+        ),
+      );
+
+      log('Server response: ${response.statusCode}');
+      final decodedResponse = jsonDecode(response.body);
+
+      log('Server response: $decodedResponse');
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        final errorMessage = decodedResponse ?? 'Unknown error occurred';
+        throw ApiException(
+          'Server error: $errorMessage',
+          statusCode: response.statusCode,
+        );
+      }
+    } catch (e) {
+      throw ApiException('Error setting credentials: $e');
     }
   }
 }

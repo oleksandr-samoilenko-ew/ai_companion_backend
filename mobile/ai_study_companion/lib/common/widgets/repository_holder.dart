@@ -1,4 +1,5 @@
 import 'package:ai_study_companion/features/qiz/repositories/quiz_repository.dart';
+import 'package:ai_study_companion/features/welcome/repositories/creds_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
@@ -27,6 +28,11 @@ class RepositoriesHolder extends StatelessWidget {
         ),
         RepositoryProvider<QuizRepository>(
           create: (context) => QuizRepositoryImpl(
+            apiService: apiService,
+          ),
+        ),
+        RepositoryProvider<CredsRepository>(
+          create: (context) => CredsRepositoryImpl(
             apiService: apiService,
           ),
         ),

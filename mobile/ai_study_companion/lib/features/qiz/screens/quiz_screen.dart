@@ -53,7 +53,8 @@ class QuizScreenContent extends StatelessWidget {
                           case LoadingStatus.initial:
                           case LoadingStatus.loading:
                             return const Center(
-                                child: CircularProgressIndicator());
+                              child: CircularProgressIndicator(),
+                            );
                           case LoadingStatus.success:
                           case LoadingStatus.evaluated:
                             return Column(
@@ -74,7 +75,8 @@ class QuizScreenContent extends StatelessWidget {
                                       shape: const RoundedRectangleBorder(),
                                       backgroundColor: Colors.blue,
                                       padding: const EdgeInsets.symmetric(
-                                          vertical: 16),
+                                        vertical: 16,
+                                      ),
                                     ),
                                     child: const Text(
                                       'Submit',

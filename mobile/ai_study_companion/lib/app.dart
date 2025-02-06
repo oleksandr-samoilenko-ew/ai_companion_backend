@@ -1,7 +1,7 @@
-import 'package:ai_study_companion/common/pages/home_page.dart';
 import 'package:flutter/material.dart';
 
 import 'common/widgets/global_bloc_provider.dart';
+import 'features/welcome/screens/welcome_screen.dart';
 
 class Application extends StatelessWidget {
   const Application({super.key});
@@ -14,7 +14,7 @@ class Application extends StatelessWidget {
         theme: ThemeData(
           primarySwatch: Colors.blue,
         ),
-        home: const HomePage(),
+        home: const WelcomeScreen(),
       ),
     );
   }
